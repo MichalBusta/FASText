@@ -1,0 +1,5 @@
+
+include_directories(@CMAKE_SOURCE_DIR@/src) 
+include(@CMAKE_BINARY_DIR@/FastTextLibraryDepends.cmake)
+
+set(FastText_LIBS FTreader @OpenCV_LIBS@)
