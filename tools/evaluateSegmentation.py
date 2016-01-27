@@ -37,9 +37,6 @@ def run_evaluation(inputDir, outputDir, process_color = 0, processTest = 0):
     edgeThreshold = 14
     fastex = FASTex(edgeThreshold = edgeThreshold)
     
-    modelFile = '/home/busta/outModel.boost'
-    model = cv2.Boost()
-    model.load(modelFile)
     images = glob.glob('{0}/*.jpg'.format(inputDir))
     
     segmDir = '{0}/segmentations'.format(inputDir)
