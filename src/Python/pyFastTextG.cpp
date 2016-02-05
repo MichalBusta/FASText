@@ -24,6 +24,7 @@
 #include "../FTPyramid.hpp"
 #include "IOUtils.h"
 #include "Segmenter.h"
+#include "../vis/componentsVis.h"
 
 #include <iostream>
 
@@ -266,6 +267,11 @@ PyArrayObject* get_char_segmentations(PyArrayObject* img, int numOfDims, npy_int
 		{
 			cv::cvtColor(srcImg, segmImg, cv::COLOR_GRAY2BGR);
 		}
+
+		cv::Mat cser = createCSERImage(letters, keypoints, keypointsPixels, segmImg);
+		ostringstream os;
+		os << outputDir << "/" << imageName << "_chars.png";
+		imwrite(os.str(), cser);
 	}
 
 	int i = 0;

@@ -29,7 +29,7 @@ if __name__ == '__main__':
     
     #print(out)
     segmentations = ft.getCharSegmentations(img, outputDir, 'base')
-    
+    print segmentations
     for i in range(segmentations.shape[0]):
         rectn = segmentations[i, :]
         rectn[2] += rectn[0]

@@ -15,7 +15,8 @@ add_library(FTreader STATIC
     "TimeUtils.cpp" 
     "Segmenter.cpp"
     "CharClassifier.cpp" 
-    "detectors.cpp" 
+    "detectors.cpp"
+    "vis/componentsVis.cpp"
 )
 
 add_executable(process_dir 
