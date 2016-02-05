@@ -42,6 +42,8 @@ class FASTex(object):
         @param img - the source image (numpy arry)
         @param outputDir - the debug directory for visualizations 
         @param baseName
+        
+        returns the np array where row is:  [bbox.x, bbox.y, bbox.width, bbox.height, keyPoint.pt.x, keyPoint.pt.y, octave, ?, duplicate, quality, [keypointsIds]]
         '''
         return ftext.getCharSegmentations(img, outputDir, baseName)
     
