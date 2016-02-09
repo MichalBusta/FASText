@@ -2,17 +2,7 @@
  *  Created on: Dec 15, 2015
  *      Author: Michal.Busta at gmail.com
  *
- * Copyright (c) 2015, Michal Busta, Lukas Neumann, Jiri Matas.
- *
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of the GNU General Public License as published by
- *   the Free Software Foundation; either version 2 of the License, or
- *   (at your option) any later version.
- *
- *   This program is distributed in the hope that it will be useful,
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *   GNU General Public License for more details.
+ * Copyright 2015, Michal Busta, Lukas Neumann, Jiri Matas.
  *
  * Based on:
  *
@@ -37,6 +27,11 @@
 
 #if defined _MSC_VER
 # pragma warning( disable : 4127)
+#endif
+
+#ifdef DO_ORB
+#undef DO_BENDS
+#undef CHECK_PATH
 #endif
 
 using namespace cv;
@@ -80,7 +75,7 @@ bool isDarker(const int& x, const int& vt ){
  * @param ptr
  * @param pixel
  * @param corners
- * @param cornersOut position of out corners of circular pattern
+ * @param cornersOut
  * @param pixelIndex
  * @param pixelCheck16
  * @param Kmin the keypoint constraints (min count of Other pixels)
@@ -160,12 +155,12 @@ inline void fastext_inner_loop_12(Mat& img, const int& N, const int& threshold,
 					}
 				}
 
-				if((count + countR) <= Kmax && same < 3)
+				if((count + countR) <= Kmax && same <= 3)
 				{
 
 					int k1 = 0, k2 = 0;
 					int sameCheck = ((sameEnd + sameStart) / 2) % 12;
-					getCrossCorner12(ptr, corners, cornersOut, sameCheck, k1, k2, mindist );
+					getCrossCorner12(ptr, corners, cornersOut, sameCheck, k1, k2, maxdist );
 					if( !isOther(k1, vt) || !isOther(k2, vt) )
 					{
 						break;
@@ -592,7 +587,7 @@ void FASText12(cv::Ptr<cv::AutoBuffer<uchar> > _buf, const std::vector<std::vect
 /**
  *   FastFeatureDetector
  */
-FASTextI::FASTextI( long _threshold, bool _nonmaxSuppression, int keypointsTypes, int Kmin, int Kmax )
+FastFeatureDetectorC::FastFeatureDetectorC( long _threshold, bool _nonmaxSuppression, int keypointsTypes, int Kmin, int Kmax )
     : threshold(_threshold), nonmaxSuppression(_nonmaxSuppression), keypointsTypes(keypointsTypes), Kmin(Kmin), Kmax(Kmax)
 {
 	for(int y = -2; y < 3; y++)
@@ -608,16 +603,18 @@ FASTextI::FASTextI( long _threshold, bool _nonmaxSuppression, int keypointsTypes
 /**
  *   FastFeatureDetector
  */
-FASTextGray::FASTextGray( long _threshold, bool _nonmaxSuppression, int keypointsTypes, int Kmin, int Kmax ): FASTextI( _threshold, _nonmaxSuppression, keypointsTypes, Kmin, Kmax )
+FASTextGray::FASTextGray( long _threshold, bool _nonmaxSuppression, int keypointsTypes, int Kmin, int Kmax ): FastFeatureDetectorC( _threshold, _nonmaxSuppression, keypointsTypes, Kmin, Kmax )
 {
 
 }
+
 
 void FASTextGray::detectImpl( const Mat& image, std::vector<FastKeyPoint>& keypoints, const Mat& mask ) const
 {
     Mat grayImage = image;
     if( image.type() != CV_8UC1 )
     	cvtColor( image, grayImage, COLOR_BGR2GRAY );
+    //imwrite("/tmp/fast.png", grayImage);
     cv::Ptr<cv::AutoBuffer<uchar> > autoBuffer;
     cmp::FASText12(autoBuffer, fastAngles, grayImage, keypoints, threshold, nonmaxSuppression, this->keypointsTypes, Kmin, Kmax);
     KeyPointsFilterC::runByPixelsMask( keypoints, mask );
