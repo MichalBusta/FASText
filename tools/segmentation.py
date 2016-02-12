@@ -10,7 +10,6 @@ import sys
 from ft import FASTex
 from vis import draw_keypoints
 
-
 if __name__ == '__main__':
     
     outputDir = '/tmp'

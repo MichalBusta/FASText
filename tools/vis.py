@@ -18,6 +18,7 @@ from _collections import defaultdict
 import sys
 import ftext
 import os
+import matplotlib as mpl
 
 added_objects = []
 last_selection = ()
@@ -501,7 +502,7 @@ def draw_keypoints(img, keypoints, threshold, inter = True, color = 1):
         plt.margins(0,0)
         
         #tmp = cv2.cvtColor(, cv2.COLOR_GRAY2RGB)
-        ax_tuple[i].imshow(images[i], interpolation='nearest', cmap=pylab.gray())
+        ax_tuple[i].imshow(images[i], interpolation='nearest', cmap=mpl.cm.gray)
         ax_tuple[i].grid(True)
         ax_tuple[i].axis('off') 
         ax_tuple[i].set_xlim([0, images[i].shape[1]])

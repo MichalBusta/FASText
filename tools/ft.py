@@ -7,8 +7,11 @@ Created on Sep 15, 2015
 import os, sys
 
 baseDir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+print baseDir
 #sys.path.append(os.path.join(baseDir, "Release/bin" ))
 sys.path.append(os.path.join(baseDir, "Release" ))
+
+sys.path.append("/Users/flipajs/Downloads/temp2/FASText/Release")
 #sys.path.append(os.path.join(baseDir, "Debug" ))
 
 import numpy as np
