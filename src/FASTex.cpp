@@ -587,7 +587,7 @@ void FASText12(cv::Ptr<cv::AutoBuffer<uchar> > _buf, const std::vector<std::vect
 /**
  *   FastFeatureDetector
  */
-FastFeatureDetectorC::FastFeatureDetectorC( long _threshold, bool _nonmaxSuppression, int keypointsTypes, int Kmin, int Kmax )
+FASTextI::FASTextI( long _threshold, bool _nonmaxSuppression, int keypointsTypes, int Kmin, int Kmax )
     : threshold(_threshold), nonmaxSuppression(_nonmaxSuppression), keypointsTypes(keypointsTypes), Kmin(Kmin), Kmax(Kmax)
 {
 	for(int y = -2; y < 3; y++)
@@ -603,7 +603,7 @@ FastFeatureDetectorC::FastFeatureDetectorC( long _threshold, bool _nonmaxSuppres
 /**
  *   FastFeatureDetector
  */
-FASTextGray::FASTextGray( long _threshold, bool _nonmaxSuppression, int keypointsTypes, int Kmin, int Kmax ): FastFeatureDetectorC( _threshold, _nonmaxSuppression, keypointsTypes, Kmin, Kmax )
+FASTextGray::FASTextGray( long _threshold, bool _nonmaxSuppression, int keypointsTypes, int Kmin, int Kmax ): FASTextI( _threshold, _nonmaxSuppression, keypointsTypes, Kmin, Kmax )
 {
 
 }
