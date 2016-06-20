@@ -1,7 +1,7 @@
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/src/Python)
 
-find_package(PythonLibs REQUIRED)
+find_package(PythonLibs 2.7 REQUIRED)
 
 find_package(NumPy REQUIRED)
 
