@@ -27,6 +27,13 @@ python evaluateSegmentation.py
 ```  
   - will reproduce results on ICDAR 2013 dataset (requires Challenge 2 dataset & GT segmentations) 
 
+For text lines clustering, you can run the simple demo: 
+```
+cd tools
+python testLines.py
+```
+The text line clustering is just simple voting in Hough space where each region vote for each line going through region centroid
+
 Please cite this paper if you use this data or code:
 ```
 @InProceedings{Busta_2015_ICCV,
