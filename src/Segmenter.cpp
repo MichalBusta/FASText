@@ -470,11 +470,11 @@ int segmentStroke(cv::Mat& img, cv::Mat& segmMap, cv::Mat& idImage, cmp::FastKey
 		segmImg = cv::Mat::zeros( roi.height, roi.width, CV_8UC1 );
 
 		area = 0;
-		for (size_t y = 0; y < roi.height; y++  )
+		for (int y = 0; y < roi.height; y++  )
 		{
 			int* rowId  = idImage.ptr<int>(y + roi.y);
 			uchar* rowSegm = segmImg.ptr<uchar>(y);
-			for(size_t x = 0; x <  roi.width; x++)
+			for(int x = 0; x <  roi.width; x++)
 			{
 				if( rowId[x + roi.x] == compCounter)
 				{

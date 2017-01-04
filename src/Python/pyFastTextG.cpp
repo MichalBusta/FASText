@@ -25,6 +25,7 @@
 #include "IOUtils.h"
 #include "Segmenter.h"
 #include "../vis/componentsVis.h"
+#include "FastTextLineDetector.h"
 
 #include <iostream>
 
@@ -559,5 +560,130 @@ PyArrayObject* get_segm_features(int segmId)
 		*ptr = segmFeatures[i];
 	}
 	return out;
+}
+
+
+PyArrayObject* get_last_detection_lines(std::vector<cmp::FTextLine>& textLines, int instance = 0)
+{
+	npy_intp size_pts[2];
+	size_pts[0] = textLines.size();
+	size_pts[1] = 13;
+
+
+	PyArrayObject* out = (PyArrayObject *) PyArray_SimpleNew( 2, size_pts, NPY_FLOAT );
+
+	std::vector<cmp::LetterCandidate>& letterCandidatesMap =  instances[instance].segmenter->getLetterCandidates();
+	//Py_INCREF(out);
+
+	int lineNo = 0;
+	for(size_t i = 0; i < textLines.size(); i++)
+	{
+		cmp::FTextLine* line = &textLines[i];
+
+		if(!line->isSegmentable)
+		{
+			continue;
+		}
+		cv::Rect& box = line->bbox;
+
+		//std::cout << "Line " << lineNo << " Box: " << box << std::endl;
+
+		cv::RotatedRect rr = line->getMinAreaRect(letterCandidatesMap);
+
+		float* ptr = (float *) PyArray_GETPTR2(out, lineNo, 0);
+		*ptr++ = box.x;
+		*ptr++ = box.y;
+		*ptr++ = box.width;
+		*ptr++ = box.height;
+
+		cv::Point2f rect_points[4]; rr.points( rect_points );
+		*ptr++ = rect_points[0].x;
+		*ptr++ = rect_points[0].y;
+		*ptr++ = rect_points[1].x;
+		*ptr++ = rect_points[1].y;
+		*ptr++ = rect_points[2].x;
+		*ptr++ = rect_points[2].y;
+		*ptr++ = rect_points[3].x;
+		*ptr++ = rect_points[3].y;
+
+    *ptr++ = (int) line->type;
+		lineNo++;
+	}
+	return out;
+}
+
+std::vector<cmp::FTextLine> textLines;
+
+PyArrayObject* find_text_lines(const char * outputDir, const char * imageName, int instance)
+{
+	double t2 = (double) cv::getTickCount();
+	textLines.clear();
+	//instances[instance].textLineDetector->findTextLines(lastImage, instances[instance].orbDetector, keypoints, instances[instance].orbDetector->getScales(), textLines);
+
+	FastTextLineDetector textLineDetector;
+
+	textLineDetector.findTextLines(lastImage, instances[instance].segmenter->getLetterCandidates(), instances[instance].ftDetector->getScales(), textLines);
+
+	detectionStat.textLineTime += ( (double) cv::getTickCount() - t2)/ (cv::getTickFrequency()) * 1000;
+	t2 = (double) cv::getTickCount();
+
+	//instances[instance].lineSegmenter->segmentLines(textLines);
+	detectionStat.gcTime += ( (double) cv::getTickCount() - t2)/ (cv::getTickFrequency()) * 1000;
+
+#ifndef NDEBUG
+	std::cout << "Text Lines in: " << ( (double) cv::getTickCount() - t2)/ (cv::getTickFrequency()) * 1000 << std::endl;
+#endif
+
+	if(outputDir != NULL && strlen(outputDir) > 0)
+	{
+		cv::Mat lineImage = lastImage.clone();
+		if( lineImage.type() == CV_8UC1 )
+		{
+			cv::cvtColor(lineImage, lineImage, cv::COLOR_GRAY2RGB);
+		}
+		cv::Mat neiImage = lastImage.clone();
+		for(size_t i = 0; i < textLines.size(); i++)
+		{
+			//cv::rectangle(lineImage, *it, cv::Scalar(255, 0, 0), 1);
+			cmp::FTextLine& line = textLines[i];
+			cv::RotatedRect rr = line.minRect;
+			cv::Point2f rect_points[4]; rr.points( rect_points );
+			cv::line(lineImage, rect_points[0], rect_points[1], cv::Scalar(255, 0, 0), 2);
+			cv::line(lineImage, rect_points[1], rect_points[2], cv::Scalar(255, 0, 0), 2);
+			cv::line(lineImage, rect_points[2], rect_points[3], cv::Scalar(255, 0, 0), 2);
+			cv::line(lineImage, rect_points[3], rect_points[0], cv::Scalar(255, 0, 0), 2);
+			/*
+				int lineLength = rr.size.width / 2;
+				cv::line(lineImage, cv::Point(line.topLine[2],line.topLine[3]), cv::Point(line.topLine[2]+line.topLine[0]*lineLength,line.topLine[3]+line.topLine[1]*lineLength), cv::Scalar(0, 0, 255), 2);
+				cv::line(lineImage, cv::Point(line.bottomLine[2],line.bottomLine[3]), cv::Point(line.bottomLine[2]+line.bottomLine[0]*lineLength,line.bottomLine[3]+line.bottomLine[1]*lineLength), cv::Scalar(255, 0, 255), 2);
+			 */
+		}
+		ostringstream os;
+		os << outputDir << "/" << imageName << "_detectedLines.jpg";
+		imwrite(os.str(), lineImage);
+	}
+	return get_last_detection_lines(textLines, instance);
+}
+
+PyArrayObject* get_normalized_line(int lineNo, int instance)
+{
+
+	cv::Mat norm = textLines[lineNo].getNormalizedMask(lastImage, instances[instance].segmenter->getLetterCandidates(), 1.0).clone();
+	textLines[lineNo].normImage = norm;
+	if(norm.type() == CV_8UC3){
+		npy_intp size_pts[3];
+		size_pts[0] = norm.rows;
+		size_pts[1] = norm.cols;
+		size_pts[2] = 3;
+		//norm.addref();
+		PyArrayObject* imgMask = (PyArrayObject *) PyArray_SimpleNewFromData( 3, size_pts, NPY_UINT8, norm.data );
+		return imgMask;
+	}else{
+		npy_intp size_pts[2];
+		size_pts[0] = norm.rows;
+		size_pts[1] = norm.cols;
+		PyArrayObject* imgMask = (PyArrayObject *) PyArray_SimpleNewFromData( 2, size_pts, NPY_UINT8, norm.data );
+		return imgMask;
+	}
 }
 

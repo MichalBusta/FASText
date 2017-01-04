@@ -52,7 +52,7 @@ public:
 		return classifyLetter(letter, debugImage);
 	}
 
-	virtual bool extractLineFeatures(LetterCandidate& letter);
+	static bool extractLineFeatures(LetterCandidate& letter);
 
 	int64 classificationTime;
 };

@@ -22,6 +22,10 @@
 #include "CharClassifier.h"
 #include "Segmenter.h"
 
+#include "FastTextLineDetector.h"
+
+#define VERBOSE 1
+
 using namespace cmp;
 
 int main(int argc, char **argv)
@@ -38,8 +42,10 @@ int main(int argc, char **argv)
 	bool color = false;
 
 	cv::Ptr<cmp::FTPyr> ftDetector = cv::Ptr<cmp::FTPyr> (new cmp::FTPyr(3000, scaleFactor, nlevels, edgeThreshold, keypointTypes, kMin, kMax, color, false, false));
-	cv::Ptr<cmp::CharClassifier> charClassifier = cv::Ptr<cmp::CharClassifier> (new cmp::CvBoostCharClassifier());
-	cv::Ptr<cmp::Segmenter> segmenter = cv::Ptr<cmp::Segmenter> (new cmp::PyramidSegmenter(ftDetector));
+	cv::Ptr<cmp::CharClassifier> charClassifier = cv::Ptr<cmp::CharClassifier> (new cmp::CvBoostCharClassifier("cvBoostChar.xml"));
+	cv::Ptr<cmp::Segmenter> segmenter = cv::Ptr<cmp::Segmenter> (new cmp::PyramidSegmenter(ftDetector, charClassifier));
+
+	FastTextLineDetector textLineDetector;
 
 	long long segmentationTime = 0;
 	long long lettersTotal = 0;
@@ -100,6 +106,26 @@ int main(int argc, char **argv)
 			lettersTotal += letters.size();
 			segmentationTime += TimeUtils::MiliseconsNow() - start;
 			clsTime += segmenter->getClassificationTime();
+
+			std::vector<FTextLine> textLines;
+			textLineDetector.findTextLines(gray, segmenter->getLetterCandidates(), ftDetector->getScales(), textLines);
+#ifdef VERBOSE
+			cv::Mat lineImage = img.clone();
+			for(size_t i = 0; i < textLines.size(); i++){
+				FTextLine& line = textLines[i];
+				cv::RotatedRect rr = line.getMinAreaRect(segmenter->getLetterCandidates());
+
+				cv::Scalar c(255, 0, 0);
+				cv::Point2f rect_points[4]; rr.points( rect_points );
+				cv::line(lineImage, rect_points[0], rect_points[1], c, 1);
+				cv::line(lineImage, rect_points[1], rect_points[2], c, 1);
+				cv::line(lineImage, rect_points[2], rect_points[3], c, 1);
+				cv::line(lineImage, rect_points[3], rect_points[0], c, 1);
+
+			}
+			cv::imshow("textLines", lineImage);
+			cv::waitKey(0);
+#endif
 
 		}
 	}

@@ -17,6 +17,10 @@ add_library(FTreader STATIC
     "CharClassifier.cpp" 
     "detectors.cpp"
     "vis/componentsVis.cpp"
+    "HoughTLDetector.cpp"
+    "FastTextLine.cpp"
+    "FastTextLineDetector.cpp"
+    "geometry.cpp"
 )
 
 add_executable(process_dir 

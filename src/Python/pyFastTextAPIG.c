@@ -174,6 +174,37 @@ static PyObject* getLastOrbKeyPoints_cfunc (PyObject *dummy, PyObject *args)
 	return (PyObject *) out;
 }
 
+static PyObject* find_text_lines_cfunc (PyObject *dummy, PyObject *args)
+{
+	PyObject *arg1=NULL;
+	PyArrayObject *out=NULL;
+	PyArrayObject *arr1=NULL;
+
+	const char * imageName;
+	const char * outputDir = NULL;
+	int instance = 0;
+	int merge_inners = 0;
+	if (!PyArg_ParseTuple(args, "|ssi", &outputDir, &imageName, &instance ))
+		return NULL;
+
+	out =  find_text_lines(outputDir, imageName, instance);
+	return (PyObject *) out;
+}
+
+static PyObject* getNormalizedLine_cfunc (PyObject *dummy, PyObject *args)
+{
+	PyObject *arg1=NULL;
+	PyArrayObject *out=NULL;
+	int instance = 0;
+	int line = 0;
+	if (!PyArg_ParseTuple(args, "i|i", &line, &instance))
+			return NULL;
+
+	out =  get_normalized_line(line, instance);
+
+	return (PyObject *) out;
+}
+
 static PyMethodDef FastTextMethods[] = {
 
 		{"findKeyPoints",  findKeyPoints_cfunc, METH_VARARGS, "Find Keipoints in the image"},
@@ -186,6 +217,8 @@ static PyMethodDef FastTextMethods[] = {
 		{"getSegmentationMask",  getSegmMask_cfunc, METH_VARARGS, "Returns the segmentation mask by ID"},
 		{"getImageScales",  getImageScales_cfunc, METH_VARARGS, "Returns the image pyramid scales"},
 		{"getLastDetectionOrbKeypoints",  getLastOrbKeyPoints_cfunc, METH_VARARGS, "Find ORB keypoints in the image"},
+		{"findTextLines",  find_text_lines_cfunc, METH_VARARGS, "Finds and returns text lines in the image"},
+		{"getNormalizedLine",  getNormalizedLine_cfunc, METH_VARARGS, "Returns the normalized line segmentation"},
 		{NULL, NULL, 0, NULL}        /* Sentinel */
 };
 

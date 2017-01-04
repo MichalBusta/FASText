@@ -36,6 +36,8 @@ PyArrayObject* get_char_segmentations(PyArrayObject* img, int numOfDims, npy_int
 
 PyArrayObject* find_text_lines(const char * outputDir, const char * imageName, int instance);
 
+PyArrayObject* get_normalized_line(int lineNo, int instance);
+
 PyArrayObject* get_keypoint_strokes(int keypointId, int instance);
 
 PyArrayObject* get_last_detection_keypoints();

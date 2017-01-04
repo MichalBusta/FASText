@@ -50,6 +50,23 @@ class FASTex(object):
         '''
         return ftext.getCharSegmentations(img, outputDir, baseName)
     
+    def findTextLines(self, outputDir='', baseName=''):
+        '''
+        @param outputDir - the debug directory for visualizations 
+        @param baseName
+        
+        returns the np array where row is:  [bbox.x, bbox.y, bbox.width, bbox.height, rotated rectangle points (pt1.x, pt1.y, ... pt3.y) ]
+        '''
+        return ftext.findTextLines(outputDir, baseName)
+    
+    def getNormalizedLine(self, lineNo):
+        '''
+        @param lineNo - the id of line - row in np array from findTextLines 
+        
+        returns the line image normalized against the rotation
+        '''
+        return ftext.getNormalizedLine(lineNo)
+    
     def getLastDetectionKeypoints(self):
         return ftext.getLastDetectionKeypoints()
     

@@ -119,8 +119,23 @@ public:
 
 	float getStrokeAreaRatio(std::vector<cmp::FastKeyPoint>& img1_keypoints, std::unordered_multimap<int, std::pair<int, int> >& keypointsPixels);
 
+	inline void scalePoints(){
+		if(pointsScaled)
+			return;
+		for( size_t i = 0; i < cHullPoints.size(); i++)
+		{
+			cHullPoints[i].x =  bbox.x + round(cHullPoints[i].x * scaleFactor);
+			cHullPoints[i].y = bbox.y + round(cHullPoints[i].y * scaleFactor);
+		}
+		area *= scaleFactor * scaleFactor;
+		rotatedRect.size.width *= scaleFactor;
+		rotatedRect.size.height *= scaleFactor;
+		pointsScaled = true;
+	}
+
 	cv::Mat mask;
 	cv::Rect bbox;
+	cv::RotatedRect rotatedRect;
 	float angle;
 	int hullPoints;
 	int area;
@@ -181,34 +196,6 @@ private:
 	cv::Point convexCentroid;
 
 };
-
-class LineCandidate
-{
-public:
-
-	LineCandidate(){ }
-
-	LineCandidate(LetterCandidate start, LetterCandidate stop, cv::Mat lineImage, cv::Mat binImage, cv::Rect roi, std::vector<std::vector<cv::Point> > contours);
-
-	LetterCandidate start;
-	LetterCandidate stop;
-
-	cv::Mat lineImage;
-	cv::Mat binImage;
-
-	cv::Rect roi;
-
-	std::string text;
-
-	std::vector<std::vector<cv::Point> > contours;
-
-	std::vector<cv::Rect> letterBoxes;
-	std::vector<size_t> contourIndices;
-
-};
-
-void getNormalizedLines( cv::Mat& grayProc, std::vector<cmp::LetterCandidate*>& letters, size_t minComponents, size_t maxComponents, std::vector<LineCandidate>& lineCandidates );
-
 
 }//namespace cmp
 

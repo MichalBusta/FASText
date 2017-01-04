@@ -53,8 +53,14 @@ cv::Point LetterCandidate::getConvexCentroid()
 {
 	if(convexCentroid.x == 0)
 	{
-		cv::Moments m = cv::moments(this->cHullPoints);
-		convexCentroid = cv::Point((int) cvRound(m.m10 / m.m00), (int) cvRound(m.m01 / m.m00));
+		if(this->cHullPoints.size() > 3){
+			cv::Moments m = cv::moments(this->cHullPoints);
+			convexCentroid = cv::Point((int) cvRound(m.m10 / m.m00), (int) cvRound(m.m01 / m.m00));
+			assert(convexCentroid.x > 0 && convexCentroid.y > 0);
+		}else{
+			convexCentroid = cv::Point(bbox.x + bbox.width / 2, bbox.y + bbox.height / 2);
+		}
+
 	}
 	return convexCentroid;
 }
@@ -346,22 +352,6 @@ double constrainAngle(double x)
     return x - 180;
 }
 
-LineCandidate::LineCandidate(LetterCandidate start, LetterCandidate stop, cv::Mat lineImage, cv::Mat binImage, cv::Rect roi, std::vector<std::vector<cv::Point> > contours) : start(start), stop(stop), lineImage(lineImage), binImage(binImage), roi(roi), contours(contours)
-{
-	contourIndices.clear();
-	for(size_t i = 0; i < contours.size(); i++)
-	{
-		letterBoxes.push_back(cv::boundingRect(contours[i]));
-		contourIndices.push_back(i);
-	}
-
-	std::sort(contourIndices.begin(), contourIndices.end(),
-	    [&](const int& a, const int& b) -> bool
-	{
-	    return letterBoxes[a].x < letterBoxes[b].x;
-	});
-}
-
 static void transformPoint(const cv::Mat& affMat, const cv::Point& input, cv::Rect& bbox, cv::Rect& maxRect, cv::Point& output)
 {
 	int x = input.x + bbox.x - maxRect.x;
@@ -371,140 +361,6 @@ static void transformPoint(const cv::Mat& affMat, const cv::Point& input, cv::Re
 	float xtr = x * affMat.at<double>(0, 0) + y * affMat.at<double>(1, 0) + affMat.at<double>(2, 0);
 	output.x = xtr;
 	output.y = ytr;
-}
-
-static void transformPoints(const cv::Mat& affMat, const std::vector<cv::Point>& input, cv::Rect& bbox, cv::Rect& maxRect, std::vector<cv::Point>& output)
-{
-	output.resize(input.size());
-	for(size_t i = 0; i < input.size(); i++)
-	{
-		transformPoint(affMat, input[i], bbox, maxRect, output[i]);
-	}
-}
-
-void getNormalizedLines( cv::Mat& grayProc, std::vector<cmp::LetterCandidate*>& letters, size_t minComponents, size_t maxComponents, std::vector<LineCandidate>& lineCandidates )
-{
-	lineCandidates.clear();
-	for(size_t i = 0; i < letters.size(); i++)
-	{
-		cmp::LetterCandidate& ref = *letters[i];
-		cv::Point center(ref.bbox.x + ref.bbox.width / 2, ref.bbox.y + ref.bbox.height / 2);
-		for(size_t j = i + 1; j <  letters.size(); j++)
-		{
-			cmp::LetterCandidate& ref2 = *letters[j];
-			//check angle
-			float angleDiff = ref.angle - ref2.angle;
-			if( fabs(angleDiff) > 20)
-				continue;
-			float angleC = (ref.angle + ref2.angle) / 2;
-			//check bounding box centers
-			cv::Point center2(ref2.bbox.x + ref2.bbox.width / 2, ref2.bbox.y + ref2.bbox.height / 2);
-			cv::Point diff = center2 - center;
-			float centersAngle = atan2f(diff.y, diff.x) * 180 / M_PI;
-			while(centersAngle > 90)
-				centersAngle -= 180;
-			while(centersAngle < -90)
-				centersAngle += 180;
-			double angleDiff2 = fabs(angleC) - fabs(centersAngle);
-			if( fabs(angleDiff2) > 20 )
-				continue;
-
-			cv::Rect maxRect = ref.bbox | ref2.bbox;
-			cv::Point rotCenter(maxRect.width / 2, maxRect.height / 2);
-			cv::Mat rot_mat = getRotationMatrix2D( rotCenter, centersAngle, 1.0 );
-			//transform the points of bounding box
-			cv::Mat rot_matT = rot_mat.t();
-
-			//transform points
-			std::vector<cv::Point> refPointsT;
-			transformPoints(rot_matT,  ref.contours[0], ref.bbox, maxRect,  refPointsT);
-			cv::Rect roi1 = cv::boundingRect(refPointsT);
-
-			std::vector<cv::Point> ref2PointsT;
-			transformPoints(rot_matT,  ref2.contours[0], ref2.bbox, maxRect, ref2PointsT);
-			cv::Rect roi2 = cv::boundingRect(ref2PointsT);
-
-			int minXt = MIN(roi1.x,  roi2.x);
-			int miny = MIN(roi1.y,  roi2.y);
-			if( minXt < 0)
-			{
-				rot_mat.at<double>(0, 2) -= minXt;
-			}else
-			{
-				rot_mat.at<double>(0, 2) += minXt;
-			}
-
-			if( miny < 0)
-			{
-				rot_mat.at<double>(1, 2) += miny;
-			}else{
-				rot_mat.at<double>(1, 2) -= miny;
-			}
-
-			cv::Rect roiMax =  roi1 | roi2;
-			cv::Size dst_size(MAX(roiMax.width, roiMax.height), MAX(roiMax.width, roiMax.height));
-
-			cv::Mat thresh;
-			int maskSize = (ref.bbox.width + ref.bbox.height) / 2 * 1.5;
-			if( maskSize % 2 == 0)
-				maskSize += 1;
-			int maskSize2 = (ref2.bbox.width + ref2.bbox.height) / 2 * 1.5;
-			if( maskSize2 % 2 == 0)
-				maskSize2 += 1;
-			maskSize = MIN(maskSize, maskSize2);
-
-			cv::Mat normalizedLine;
-			warpAffine( grayProc(maxRect), normalizedLine, rot_mat, dst_size, cv::INTER_CUBIC, cv::BORDER_REFLECT);
-
-			/*
-			cv::imshow("maxRect", grayProc(maxRect));
-			cv::imshow("normLine", normalizedLine);
-			imwrite("/tmp/normLine.png", normalizedLine);
-			cv::imwrite("/tmp/maxRect.png", grayProc(maxRect));
-			cv::waitKey(0);
-			*/
-
-			if(roiMax.height < 5 || roiMax.width < 5)
-				continue;
-			roiMax.x -= minXt;
-			roiMax.y = 0;
-
-			normalizedLine = normalizedLine(roiMax);
-
-			//cv::imshow("normLineRoi", normalizedLine);
-			//cv::waitKey(0);
-			//cv::threshold( normalizedLine,thresh, (thresholdHigh + thresholdLow) / 2, 255,  cv::THRESH_BINARY_INV );
-
-			cv::adaptiveThreshold( normalizedLine, thresh, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY_INV, maskSize, 0);
-
-			/*
-			imshow("normLine", normalizedLine);
-			cv::imshow("thresh", thresh);
-			cv::waitKey(0);
-			*/
-
-
-			vector<vector<cv::Point> > contours;
-			cv::copyMakeBorder(thresh, thresh, 1, 1, 1, 1, cv::BORDER_CONSTANT, cv::Scalar(0, 0, 0));
-			cv::findContours(thresh.clone(), contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
-
-			for( vector<vector<cv::Point> >::iterator it = contours.begin(); it < contours.end(); )
-			{
-				if((int) it->size() <  ref.bbox.height)
-					it = contours.erase(it);
-				else
-					it++;
-			}
-			if( contours.size() > maxComponents )
-				continue;
-			if( contours.size() < minComponents )
-				continue;
-
-			lineCandidates.push_back(LineCandidate(ref, ref2, normalizedLine, thresh, maxRect, contours));
-		}
-
-	}
-
 }
 
 }//namespace cmp

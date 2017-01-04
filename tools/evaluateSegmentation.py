@@ -99,7 +99,7 @@ def run_evaluation(inputDir, outputDir, process_color = 0, processTest = 0):
     
     hasSegm = False
     
-    for image in images:
+    for image in sorted(images):
         print('Processing {0}'.format(image))
         
         img = cv2.imread(image, 0)
@@ -582,9 +582,8 @@ if __name__ == '__main__':
     #inputDir = '/home/busta/data/cvut/textspotter/datasets/icdar2013-Train'
     outputBase = '/datagrid/personal/TextSpotter/FastTextEval/ICDAR-Train'
     if processTest == 1: 
-        inputDir = '/home/busta/data/cvut/textspotter/datasets/icdar2013-Test'
-        inputDir = '/textspotter/evaluation-sets/icdar2013-Test'
-        outputBase = '/datagrid/personal/TextSpotter/FastTextEval/ICDAR-Test'
+        inputDir = '/home/busta/data/icdar2013-Test'
+        outputBase = '/tmp/test'
     outputBase = '/textspotter/experiments/FasTex/Train/'
     #outputBase = '/tmp/eval/'
     if processTest == 1: 
