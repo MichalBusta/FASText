@@ -72,14 +72,7 @@ int main(int argc, char **argv)
 		std::string imgName = outDir;
 		imgName += cmp::IOUtils::Basename(files[x]) + ".png";
 		cv::imwrite(imgName, strokes);
-
-		std::vector<string> strings;
-		std::vector<double> quality;
-		for( auto str : strings)
-		{
-			std::cout << "Found: " << str << std::endl;
-		}
-
+		
 		cv::Mat procImg = img;
 
 		std::vector<cmp::FastKeyPoint> img1_keypoints;
