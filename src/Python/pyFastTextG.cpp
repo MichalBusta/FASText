@@ -687,3 +687,218 @@ PyArrayObject* get_normalized_line(int lineNo, int instance)
 	}
 }
 
+std::vector<std::vector<float> > featuresChar;
+std::vector<int> labesChar;
+void accum_character_features(int classNo, int segmId)
+{
+    //std::cout << segmId << "/" << classNo << std::endl;
+	cmp::LetterCandidate& det = instances[0].segmenter->getLetterCandidates()[segmId];
+	featuresChar.push_back(std::vector<float>());
+	if(det.featureVector.empty())
+	{
+		extractFeatureVect(det.mask, featuresChar.back(), det);
+	}else{
+		for( int i = 0; i < det.featureVector.cols; i++ )
+			featuresChar.back().push_back(det.featureVector.at<float>(0, i));
+	}
+
+    labesChar.push_back(classNo);
+}
+
+static cv::Ptr<cv::ml::TrainData>
+prepare_train_data(const cv::Mat& data, const cv::Mat& responses)
+{
+    cv::Mat sample_idx = cv::Mat::zeros( data.rows, 1, CV_8U );
+    sample_idx = cv::Scalar(1);
+    return cv::ml::TrainData::create(data, cv::ml::ROW_SAMPLE, responses,
+                                     cv::noArray(), sample_idx, cv::noArray());
+}
+
+static PyArrayObject* test_and_save_classifier(const cv::Ptr<cv::ml::StatModel>& model, cv::Ptr<cv::ml::TrainData> tdata, int rdelta,
+                                               const string& filename_to_save)
+{
+    cv::Mat data = tdata->getTrainSamples();
+    int nsamples_all = data.rows;
+    double train_hr = 0;
+    double train_hrp = 0;
+    int samplesp = 0, sp = 0;
+
+
+    npy_intp size_pts[2];
+    size_pts[0] = nsamples_all;
+    size_pts[1] = 3 + data.cols;
+
+    PyArrayObject* out = (PyArrayObject *) PyArray_SimpleNew( 2, size_pts, NPY_FLOAT );
+
+
+    cv::Mat responses = tdata->getTrainResponses();
+
+    // compute prediction error on train and test data
+    int curentSample = 0;
+    for( int i = 0; i < data.rows; i++ )
+    {
+        cv::Mat sample = data.row(i);
+
+        float r = model->predict( sample );
+        r = std::abs(r + rdelta - responses.at<int>(i)) <= FLT_EPSILON ? 1.f : 0.f;
+
+        float votes = model->predict( sample, cv::noArray(), cv::ml::DTrees::PREDICT_SUM | cv::ml::StatModel::RAW_OUTPUT);
+        //int val = model->predict( sample );
+        float prob = 1.0f / (1.0f + exp (-votes) );
+
+        float* ptr = (float *) PyArray_GETPTR2(out, curentSample++, 0);
+        *ptr = responses.at<int>(i);
+        ptr++;
+        *ptr = prob;
+        ptr++;
+        *ptr = true;
+        for(int s = 0; s < sample.cols; s++){
+            ptr++;
+            *ptr = sample.at<float>(s);
+        }
+
+        if( responses.at<int>(i) == 1 )
+        {
+            train_hrp += r;
+            samplesp++;
+        }
+        train_hr += r;
+    }
+    train_hr = data.rows > 0 ? train_hr/data.rows : 1.;
+
+    train_hrp /= samplesp;
+
+    printf( "Recognition rate: train = %.1f%%, test = %.1f%%, %d - %d\n",
+            train_hr*100., train_hrp*100., samplesp, sp );
+
+    std::cout << "Positive Count: " << samplesp + sp << ", Negative: " << nsamples_all << std::endl;
+
+    if( !filename_to_save.empty() )
+    {
+        model->save( filename_to_save );
+    }
+    return out;
+}
+
+void train_character_features(void)
+{
+#ifdef OPENCV_24
+	cv::Ptr<CvBoost> classifier = new CvBoost();
+	cv::Ptr<CvBoost> classifier2 = new CvBoost();
+
+	cv::Mat trainingData;
+	cv::Mat labelsMat;
+
+	createTrainDataMat(featuresChar, labesChar, trainingData, labelsMat);
+	cv::Mat trainingData2x;
+	cv::Mat labelsMat2x;
+	featuresChar[0].resize(featuresChar[0].size() - 1);
+	createTrainDataMat(featuresChar, labesChar, trainingData2x, labelsMat2x);
+	features.clear();
+	labels.clear();
+	std::cout << "TrainData rows: " << trainingData.rows << std::endl;
+	classifier->train( trainingData, CV_ROW_SAMPLE, labelsMat, cv::Mat(), cv::Mat(), cv::Mat(), cv::Mat(), CvBoostParams(CvBoost::GENTLE, 40, 0.95, 3, false, 0 ));
+	string fileName = "/tmp/cvBoostChar.xml";
+	cv::FileStorage fs(fileName, cv::FileStorage::WRITE);
+	classifier->write(*fs, "classifier");
+	fs.release();
+	std::cout << "GentleBoost: Confusion Matrix for TrainSet: \n";
+	crossValidate(classifier, trainingData, labesChar, "/tmp/cvBoostChar.png");
+
+
+	classifier2->train( trainingData2x, CV_ROW_SAMPLE, labelsMat, cv::Mat(), cv::Mat(), cv::Mat(), cv::Mat(), CvBoostParams(CvBoost::GENTLE, 40, 0.95, 3, false, 0 ));
+	std::cout << "GentleBoost: Confusion Matrix for TrainSet - No Stroke: \n";
+	crossValidate(classifier2, trainingData2x, labesChar, "/tmp/cvBoostCharNs.png");
+
+	cv::Mat trainingData2;
+	cv::Mat labelsMat2;
+	classifier = new CvBoost();
+	createTrainDataMat(featuresMultiChar, labesMultiChar, trainingData2, labelsMat2);
+	classifier->train( trainingData2, CV_ROW_SAMPLE, labelsMat2, cv::Mat(), cv::Mat(), cv::Mat(), cv::Mat(), CvBoostParams(CvBoost::GENTLE, 50, 0.95, 3, false, 0 ));
+	fileName = "/tmp/cvBoostMultiChar.xml";
+	cv::FileStorage fs2(fileName, cv::FileStorage::WRITE);
+	classifier->write(*fs2, "classifier");
+	fs2.release();
+	std::cout << "GentleBoost Multichar: Confusion Matrix for TrainSet: \n";
+	crossValidate(classifier, trainingData2, labesMultiChar, "/tmp/cvBoostMultiChar.png");
+#else
+	cv::Mat data = cv::Mat::zeros(featuresChar.size(), featuresChar[0].size(), CV_32FC1);
+	cv::Mat responses = cv::Mat::zeros(featuresChar.size(), 1, CV_32SC1);
+	int positiveCount = 0;
+	int negativeCount = 0;
+	for( size_t i = 0; i < featuresChar.size(); i++ )
+	{
+		for( size_t j = 0; j < featuresChar[0].size(); j++ ) {
+			data.at<float>(i, j) = featuresChar[i][j];
+		}
+        if( labesChar[i] > 0 )
+		    responses.at<int>(i, 0) = 1;
+        else
+            responses.at<int>(i, 0) = 0;
+		if( labesChar[i] > 0 )
+			positiveCount += 1;
+		else
+			negativeCount +=1;
+	}
+
+    cv::Mat responsesMultiChar = cv::Mat::zeros(positiveCount, 1, CV_32SC1);
+    cv::Mat data2 = cv::Mat::zeros(positiveCount, featuresChar[0].size(), CV_32FC1);
+    int index = 0;
+    for( size_t i = 0; i < featuresChar.size(); i++ )
+    {
+        if( labesChar[i] == 0)
+            continue;
+        for( size_t j = 0; j < featuresChar[0].size(); j++ ) {
+            data2.at<float>(index, j) = featuresChar[i][j];
+        }
+        if(labesChar[i] == 2 )
+            responsesMultiChar.at<int>(index, 0) = 1;
+        else
+            responsesMultiChar.at<int>(index, 0) = 0;
+        index++;
+    }
+
+	cv::FileStorage fs("/tmp/charFeaturesMulti.xml", cv::FileStorage::WRITE);
+	fs << "responses" << responsesMultiChar;
+	fs << "data" << data2;
+	fs.release();
+
+
+	cv::Ptr<cv::ml::Boost> model;
+	model = cv::ml::Boost::create();
+
+	cout << "Training the classifier ...\n";
+	cv::Ptr<cv::ml::TrainData> tdata = prepare_train_data(data, responses);
+
+	model->setBoostType(cv::ml::Boost::GENTLE);
+	model->setWeakCount(1000);
+	model->setWeightTrimRate(0.95);
+	model->setUseSurrogates(false);
+
+	model->train(tdata);
+
+	test_and_save_classifier(model, tdata, 0, "/tmp/cvBoostChar.boost");
+
+
+	cv::Ptr<cv::ml::Boost> modelMultchar;
+	modelMultchar = cv::ml::Boost::create();
+
+	cout << "Training the classifier ...\n";
+
+	modelMultchar->setBoostType(cv::ml::Boost::GENTLE);
+	modelMultchar->setWeakCount(1000);
+	modelMultchar->setWeightTrimRate(0.95);
+	modelMultchar->setUseSurrogates(false);
+	//vector<double> priors(2);
+	//priors[0] = 1;
+	//priors[1] = negativeCount / (float) (positiveCount);
+	//model->setPriors(cv::Mat(priors));
+
+
+	cv::Ptr<cv::ml::TrainData> tdata2 = prepare_train_data(data2, responsesMultiChar);
+	modelMultchar->train(tdata2);
+	test_and_save_classifier(modelMultchar, tdata2, 0, "/tmp/cvBoostMultiChar.boost");
+
+#endif
+}
+

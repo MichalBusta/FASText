@@ -65,7 +65,7 @@ cv::Mat FTextLine::getNormalizedMask(const cv::Mat& image, std::vector<LetterCan
 	}
 
 	rext = rr;
-	rext.size.width *= 1.5;
+	rext.size.width *= 1.2;
 	rext.size.height *= 1.2;
 
 	extbox = rext.boundingRect();

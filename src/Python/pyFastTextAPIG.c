@@ -205,6 +205,25 @@ static PyObject* getNormalizedLine_cfunc (PyObject *dummy, PyObject *args)
 	return (PyObject *) out;
 }
 
+static PyObject* acumulateCharFeatures(PyObject *dummy, PyObject *args)
+{
+	PyObject *arg1=NULL;
+	PyArrayObject *out=NULL;
+	int classNo = 0;
+	int detNo = 0;
+
+	if (!PyArg_ParseTuple(args, "ii", &classNo, &detNo))
+		return NULL;
+	accum_character_features(classNo, detNo);
+	return Py_BuildValue("");
+}
+
+static PyObject* trainCharFeatures(PyObject *dummy, PyObject *args)
+{
+	train_character_features();
+	return Py_BuildValue("");
+}
+
 static PyMethodDef FastTextMethods[] = {
 
 		{"findKeyPoints",  findKeyPoints_cfunc, METH_VARARGS, "Find Keipoints in the image"},
@@ -219,6 +238,8 @@ static PyMethodDef FastTextMethods[] = {
 		{"getLastDetectionOrbKeypoints",  getLastOrbKeyPoints_cfunc, METH_VARARGS, "Find ORB keypoints in the image"},
 		{"findTextLines",  find_text_lines_cfunc, METH_VARARGS, "Finds and returns text lines in the image"},
 		{"getNormalizedLine",  getNormalizedLine_cfunc, METH_VARARGS, "Returns the normalized line segmentation"},
+		{"acummulateCharFeatures",  acumulateCharFeatures, METH_VARARGS, "todo"},
+		{"trainCharFeatures",  trainCharFeatures, METH_NOARGS, "todo"},
 		{NULL, NULL, 0, NULL}        /* Sentinel */
 };
 

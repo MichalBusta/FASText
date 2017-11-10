@@ -17,7 +17,7 @@ if __name__ == '__main__':
     
     ft = FASTex(edgeThreshold= edgeThreshold, nlevels=-1, minCompSize = 4)
     
-    imgName = '/datagrid/personal/TextSpotter/evaluation-sets/bornDigital/img_100.png'
+    imgName = '/home/busta/Desktop/cutr.png'
         
     if len(sys.argv) > 1:
         if sys.argv[1].endswith(".png") or sys.argv[1].endswith(".jpg"):

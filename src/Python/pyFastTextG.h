@@ -52,6 +52,10 @@ PyArrayObject* get_segmentation_mask(int maskId);
 
 PyArrayObject* get_image_scales(int instance);
 
+void accum_character_features(int classNo, int segmId);
+
+void train_character_features(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -231,8 +231,8 @@ from matplotlib.patches import Wedge
 
 def drawFast(point, ax, img, threshold, idx):
     #s = 2000
-    point[0] = round(point[0])
-    point[1] = round(point[1])
+    point[0] = int(round(point[0]))
+    point[1] = int(round(point[1]))
     global added_objects
     for k in range( len(added_objects ) ) :
         plotObject =  added_objects[k]
@@ -260,8 +260,6 @@ def drawFast(point, ax, img, threshold, idx):
     pointmarkers12[:, 1] += int(round(point[1]))
     if len(point) > 4:
         print('point: {0} - {1} - {2} - {3}'.format(point, img[round(point[1]), round(point[0])], img[round(point[6]), round(point[5])], img[round(point[8]), round(point[7])]))
-    else:
-        print('point: {0} - {1}'.format(point, img[round(point[1]), round(point[0])]))
     
     np.round(pointmarkers, 0, pointmarkers)
     if len(img.shape) == 3:
@@ -293,7 +291,7 @@ def drawFast(point, ax, img, threshold, idx):
         else :
             last_selection = (point, point[3], greater_then_b)
         return
-    diff = (img[pointmarkers12[:, 1], pointmarkers12[:, 0]]).astype(np.int) - img[point[1], point[0]]
+    diff = (img[pointmarkers12[:, 1], pointmarkers12[:, 0]]).astype(np.int) - img[int(point[1]), int(point[0])]
     print((img[pointmarkers12[:, 1], pointmarkers12[:, 0]]).astype(np.int))
     if len(point) < 3:
         added_objects.append( ax.scatter( [round(point[0])], [round(point[1])], c='black' ) )
@@ -317,10 +315,7 @@ def drawFast(point, ax, img, threshold, idx):
         if showFast16:
             added_objects.append( ax.scatter(pointmarkers[masksame,0], pointmarkers[masksame,1], c='black') )
             added_objects.append( ax.scatter(pointmarkers[maskDiff,0], pointmarkers[maskDiff,1], c='white') )
-        otsu_t = otsu_threshold(img, point, pointmarkers, negative=True)
-        print('otsu: {0}'.format(otsu_t))
         print('otsur: {0}'.format( point[3] +  img[point[1], point[0]] ))
-        last_selection = (point, otsu_t, lower_then)
         
         if True:
             pointmarkers12 = np.asarray(fastOffsets12)
@@ -410,7 +405,7 @@ def drawFast(point, ax, img, threshold, idx):
             
         
     else:
-        vt = img[round(point[1]), round(point[0])] - threshold
+        vt = img[int(round(point[1])), int(round(point[0]))] - threshold
         diff = img[point[1], point[0]] - (img[pointmarkers[:, 1], pointmarkers[:, 0]]).astype(np.int)  
         print(diff)
         masksame = img[pointmarkers[:, 1], pointmarkers[:, 0]] >= vt
