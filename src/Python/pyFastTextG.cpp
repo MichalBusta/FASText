@@ -780,6 +780,40 @@ static PyArrayObject* test_and_save_classifier(const cv::Ptr<cv::ml::StatModel>&
     return out;
 }
 
+#ifdef OPENCV_24
+static void createTrainDataMat(std::vector<std::vector<float> >& features, std::vector< int >& labels, cv::Mat& trainingData, cv::Mat& labelsMat)
+{
+
+	int charactersCount = 0;
+	int nonCharsCount = 0;
+	for(size_t i = 0; i < labels.size(); i++)
+	{
+		if( labels[i] == 1)
+			charactersCount++;
+		else
+			nonCharsCount++;
+	}
+
+	trainingData = cv::Mat(features.size(), features[0].size(), CV_32FC1);
+	labelsMat = cv::Mat(trainingData.rows, 1, CV_32FC1);
+	float *pLabel = labelsMat.ptr<float>();
+	for (size_t i= 0; i < features.size(); i++)
+	{
+		float* Mi = trainingData.ptr<float>(i);
+		for( size_t j = 0; j < features[0].size(); j++)
+		{
+			Mi[j] = (float) features[i][j];
+		}
+		*(pLabel++) = (float) labels[i];
+		//}
+
+		/*ostringstream os;
+			os << "C:\\Temp\\TextSpotter\\chars\\File" << i << ".jpg";
+			chars[i].SaveToImageFile(os.str());*/
+	}
+}
+#endif
+
 void train_character_features(void)
 {
 #ifdef OPENCV_24
