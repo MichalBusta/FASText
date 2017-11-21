@@ -688,9 +688,13 @@ PyArrayObject* get_normalized_line(int lineNo, int instance)
 }
 
 std::vector<std::vector<float> > featuresChar;
+std::vector<std::vector<float> > featuresMultiChar;
 std::vector<int> labesChar;
+std::vector<int> labesMultiChar;
+
 void accum_character_features(int classNo, int segmId)
 {
+#ifndef OPENCV_24
     //std::cout << segmId << "/" << classNo << std::endl;
 	cmp::LetterCandidate& det = instances[0].segmenter->getLetterCandidates()[segmId];
 	featuresChar.push_back(std::vector<float>());
@@ -703,7 +707,38 @@ void accum_character_features(int classNo, int segmId)
 	}
 
     labesChar.push_back(classNo);
+
+#else
+
+    cmp::LetterCandidate& det = instances[0].segmenter->getLetterCandidates()[segmId];
+	featuresChar.push_back(std::vector<float>());
+	if(det.featureVector.empty())
+	{
+		extractFeatureVect(det.mask, featuresChar.back(), det);
+	}else{
+		for( int i = 0; i < det.featureVector.cols; i++ )
+			featuresChar.back().push_back(det.featureVector.at<float>(0, i));
+	}
+	if( classNo == 2)
+		labesChar.push_back(1);
+	else
+		labesChar.push_back(classNo);
+
+	if( classNo == 2 )
+	{
+		featuresMultiChar.push_back(featuresChar.back());
+		featuresMultiChar.back().push_back(det.keypointIds.size());
+		labesMultiChar.push_back(1);
+	}else if( classNo == 1 )
+	{
+		featuresMultiChar.push_back(featuresChar.back());
+		featuresMultiChar.back().push_back(det.keypointIds.size());
+		labesMultiChar.push_back(0);
+	}
+#endif
 }
+
+#ifndef OPENCV_24
 
 static cv::Ptr<cv::ml::TrainData>
 prepare_train_data(const cv::Mat& data, const cv::Mat& responses)
@@ -780,6 +815,8 @@ static PyArrayObject* test_and_save_classifier(const cv::Ptr<cv::ml::StatModel>&
     return out;
 }
 
+#endif
+
 #ifdef OPENCV_24
 static void createTrainDataMat(std::vector<std::vector<float> >& features, std::vector< int >& labels, cv::Mat& trainingData, cv::Mat& labelsMat)
 {
@@ -812,6 +849,108 @@ static void createTrainDataMat(std::vector<std::vector<float> >& features, std::
 			chars[i].SaveToImageFile(os.str());*/
 	}
 }
+
+static void printConfMatrix( double *confMat )
+{
+	std::cout << "Confusion matrix: " << std::endl;
+	int totalN = confMat[0] + confMat[1];
+	int totalP = confMat[2] + confMat[3];
+	std::cout.setf( std::ios::fixed, std:: ios::floatfield );
+	std::cout.precision(5);
+	std::cout <<  confMat[0] << "(" << confMat[0] / (double) totalN << "%)\t" << confMat[1] << "(" << confMat[1] / (double) totalN << "%)" << std::endl;
+	std::cout <<  confMat[2] << "(" << confMat[2] / (double) totalP << "%)\t" << confMat[3] << "(" << confMat[3] / (double) totalP << "%)" << std::endl;
+}
+
+static void crossValidate(cv::Ptr<CvBoost> classifier, cv::Mat& trainingData, std::vector< int >& labels, std::string imageName)
+{
+	double confMat[4];
+	double confMat01[4];
+	confMat[0] = 0; confMat[1] = 0; confMat[2] = 0; confMat[3] = 0;
+	confMat01[0] = 0; confMat01[1] = 0; confMat01[2] = 0; confMat01[3] = 0;
+
+	std::vector<int> hist;
+	std::vector<int> histNeg;
+	int binCount = 40;
+	hist.resize( binCount );
+	histNeg.resize( binCount );
+	double binSize = 1.0f / binCount;
+
+
+	for(int i = 0; i < trainingData.rows; i++)
+	{
+		cv::Mat feautre = trainingData.row(i);
+		float sum = classifier->predict(feautre, cv::Mat(), cv::Range::all(), false, true);
+
+		int cls_idx = sum >= 0;
+		int label = labels[i];
+
+		const int* cmap = classifier->get_data()->cat_map->data.i;
+		const int* cofs = classifier->get_data()->cat_ofs->data.i;
+		const int* vtype = classifier->get_data()->var_type->data.i;
+
+		int val = (float) cmap[cofs[vtype[classifier->get_data()->var_count]] + cls_idx];
+
+		confMat[ label * 2 + (val + 1)/2 ]++;
+
+		float q = 1.0f / (1.0f + exp (-sum) );
+		if(q > 0.1)
+		{
+			confMat01[ label * 2 + (1 + 1)/2 ]++;
+		}else
+		{
+			confMat01[ label * 2 + (0 + 1)/2 ]++;
+		}
+
+
+		int ind = (int) ( (q) / binSize );
+		ind = MAX(0, ind);
+		ind = MIN(ind, binCount - 1);
+
+		if( label == 1 )
+			hist[ind]++;
+		else
+			histNeg[ind]++;
+	}
+
+	int height = 300;
+	cv::Mat histogram = cv::Mat::zeros(height, 380, CV_8UC3);
+	int histColWidth = 380 / binCount;
+	int maxHist = 0;
+	for(int i=0; i < binCount; i++)
+	{
+		maxHist = MAX(maxHist, hist[i]);
+		maxHist = MAX(maxHist, histNeg[i]);
+	}
+	double heightScale = height / (double) maxHist;
+	for(int i=0; i < binCount; i++)
+	{
+		if( hist[i] > histNeg[i] )
+		{
+			int rectH = heightScale*hist[i];
+			cv::rectangle(histogram, cv::Rect(histColWidth*i, height-rectH, histColWidth, rectH), cv::Scalar(0,255, 0), CV_FILLED);
+			rectH = heightScale*histNeg[i];
+			cv::rectangle(histogram, cv::Rect(histColWidth*i, height-rectH, histColWidth, rectH), cv::Scalar(0,0,255), CV_FILLED);
+		}else
+		{
+			int rectH = heightScale*histNeg[i];
+			cv::rectangle(histogram, cv::Rect(histColWidth*i, height-rectH, histColWidth, rectH), cv::Scalar(0,0,255), CV_FILLED);
+			rectH = heightScale*hist[i];
+			cv::rectangle(histogram, cv::Rect(histColWidth*i, height-rectH, histColWidth, rectH), cv::Scalar(0,255, 0), CV_FILLED);
+
+		}
+	}
+	printConfMatrix(confMat);
+	std::cout << std::endl;
+
+	std::cout << "Confusion Matrix for q > 0.1: \n";
+	printConfMatrix(confMat01);
+	std::cout << std::endl;
+
+	imwrite(imageName.c_str(), histogram);
+	//imshow("Histogram", histogram);
+	//cv::waitKey(0);
+}
+
 #endif
 
 void train_character_features(void)
@@ -828,8 +967,8 @@ void train_character_features(void)
 	cv::Mat labelsMat2x;
 	featuresChar[0].resize(featuresChar[0].size() - 1);
 	createTrainDataMat(featuresChar, labesChar, trainingData2x, labelsMat2x);
-	features.clear();
-	labels.clear();
+	featuresChar.clear();
+	labesChar.clear();
 	std::cout << "TrainData rows: " << trainingData.rows << std::endl;
 	classifier->train( trainingData, CV_ROW_SAMPLE, labelsMat, cv::Mat(), cv::Mat(), cv::Mat(), cv::Mat(), CvBoostParams(CvBoost::GENTLE, 40, 0.95, 3, false, 0 ));
 	string fileName = "/tmp/cvBoostChar.xml";
